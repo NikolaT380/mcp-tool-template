@@ -1,9 +1,12 @@
 package mk.ukim.finki.mcptoolbackend.mcp;
 
+import mk.ukim.finki.mcptoolbackend.model.domain.SearchRun;
 import mk.ukim.finki.mcptoolbackend.model.dto.DisplayResourceDto;
 import mk.ukim.finki.mcptoolbackend.model.dto.DisplaySearchRunDto;
+import mk.ukim.finki.mcptoolbackend.model.dto.RunSearchRequestDto;
 import mk.ukim.finki.mcptoolbackend.service.application.ResourceApplicationService;
 import mk.ukim.finki.mcptoolbackend.service.application.SearchRunApplicationService;
+import mk.ukim.finki.mcptoolbackend.service.domain.SearchRunService;
 import mk.ukim.finki.mcptoolbackend.service.domain.ToolInvocationLogService;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -12,7 +15,7 @@ import org.springframework.stereotype.Service;
 /**
  * MCP tools for searching the assigned website and reading stored resources.
  *
- * <p>TODO(student): Implement both tool methods. Follow {@link CorpusStatsTool}:
+ * <p>_TODO(student): Implement both tool methods. Follow {@link CorpusStatsTool}:
  * delegate to the injected application service, record the invocation with
  * {@link ToolInvocationLogService#log}, and return a JSON-serializable DTO
  * (never a JPA entity). Keep the {@code @Tool}/{@code @ToolParam} descriptions —
@@ -21,13 +24,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class ResourceSearchTool {
     private final SearchRunApplicationService searchRunApplicationService;
+    private final SearchRunService searchRunService;
     private final ResourceApplicationService resourceApplicationService;
     private final ToolInvocationLogService toolInvocationLogService;
 
     public ResourceSearchTool(SearchRunApplicationService searchRunApplicationService,
+                              SearchRunService searchRunService,
                               ResourceApplicationService resourceApplicationService,
                               ToolInvocationLogService toolInvocationLogService) {
         this.searchRunApplicationService = searchRunApplicationService;
+        this.searchRunService = searchRunService;
         this.resourceApplicationService = resourceApplicationService;
         this.toolInvocationLogService = toolInvocationLogService;
     }
@@ -38,16 +44,58 @@ public class ResourceSearchTool {
     public DisplaySearchRunDto searchResources(
         @ToolParam(description = "Free-text search query, in Macedonian or English") String query,
         @ToolParam(description = "Maximum number of resources to fetch", required = false) Integer limit) {
-        // TODO(student): delegate to searchRunApplicationService.run(new RunSearchRequestDto(query, limit)),
+        // _TODO(student): delegate to searchRunApplicationService.run(new RunSearchRequestDto(query, limit)),
         //  log the invocation, and return the DTO.
-        throw new UnsupportedOperationException("TODO(student): Implement the search_resources MCP tool.");
+        try {
+            DisplaySearchRunDto result = searchRunApplicationService.run(new RunSearchRequestDto(query, limit))
+                    .orElseThrow(() -> new IllegalStateException("Search run execution failed to produce a result"));
+
+            SearchRun searchRun = searchRunService.findById(result.id()).orElse(null);
+
+            toolInvocationLogService.log(
+                    "search_resources",
+                    "query=%s, limit=%s".formatted(query, limit),
+                    "Found %d resources, status=%s".formatted(result.resultCount(), result.status()),
+                    true,
+                    searchRun
+            );
+            return result;
+        } catch (Exception e) {
+            toolInvocationLogService.log(
+                    "search_resources",
+                    "query=%s, limit=%s".formatted(query, limit),
+                    "Error: " + e.getMessage(),
+                    false,
+                    null
+            );
+            throw e;
+        }
     }
 
     @Tool(name = "get_resource",
         description = "Fetch a single stored resource by its id, including its full text content and any analysis.")
     public DisplayResourceDto getResource(
         @ToolParam(description = "The id of the stored resource") Long id) {
-        // TODO(student): delegate to resourceApplicationService.findById(id), log, and return the DTO.
-        throw new UnsupportedOperationException("TODO(student): Implement the get_resource MCP tool.");
+        // _TODO(student): delegate to resourceApplicationService.findById(id), log, and return the DTO.
+        try {
+            DisplayResourceDto resource = resourceApplicationService.findById(id).orElse(null);
+            toolInvocationLogService.log(
+                    "get_resource",
+                    "id=" + id,
+                    resource != null ? "Found: " + resource.title() : "Not found",
+                    resource != null,
+                    null
+            );
+            return resource;
+        } catch (Exception e) {
+            toolInvocationLogService.log(
+                    "get_resource",
+                    "id=" + id,
+                    "Error: " + e.getMessage(),
+                    false,
+                    null
+            );
+            throw e;
+        }
     }
 }

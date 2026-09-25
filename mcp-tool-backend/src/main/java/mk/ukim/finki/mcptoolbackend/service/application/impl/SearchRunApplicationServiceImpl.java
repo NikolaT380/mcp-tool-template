@@ -5,12 +5,13 @@ import java.util.Optional;
 import mk.ukim.finki.mcptoolbackend.model.dto.DisplayResourceDto;
 import mk.ukim.finki.mcptoolbackend.model.dto.DisplaySearchRunDto;
 import mk.ukim.finki.mcptoolbackend.model.dto.RunSearchRequestDto;
+import mk.ukim.finki.mcptoolbackend.model.domain.SearchRun;
 import mk.ukim.finki.mcptoolbackend.service.application.SearchRunApplicationService;
 import mk.ukim.finki.mcptoolbackend.service.domain.SearchRunService;
 import org.springframework.stereotype.Service;
 
 /**
- * TODO(student): Implement this service. It should delegate to
+ * _TODO(student): Implement this service. It should delegate to
  * {@link SearchRunService} and map results with
  * {@code DisplaySearchRunDto.from(...)} / {@code DisplayResourceDto.from(...)}.
  * A sensible default {@code limit} (e.g. 10) is fine when the request omits it.
@@ -25,21 +26,26 @@ public class SearchRunApplicationServiceImpl implements SearchRunApplicationServ
 
     @Override
     public List<DisplaySearchRunDto> findAll() {
-        throw new UnsupportedOperationException("TODO(student): Implement SearchRunApplicationService.findAll().");
+        return DisplaySearchRunDto.from(searchRunService.findAll());
     }
 
     @Override
     public Optional<DisplaySearchRunDto> findById(Long id) {
-        throw new UnsupportedOperationException("TODO(student): Implement SearchRunApplicationService.findById().");
+        return searchRunService.findById(id).map(DisplaySearchRunDto::from);
     }
 
     @Override
     public Optional<DisplaySearchRunDto> run(RunSearchRequestDto request) {
-        throw new UnsupportedOperationException("TODO(student): Implement SearchRunApplicationService.run().");
+        if (request == null || request.query() == null || request.query().isBlank()) {
+            return Optional.empty();
+        }
+        int limit = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
+        SearchRun searchRun = searchRunService.run(request.query(), limit);
+        return Optional.of(DisplaySearchRunDto.from(searchRun));
     }
 
     @Override
     public List<DisplayResourceDto> findResources(Long searchRunId) {
-        throw new UnsupportedOperationException("TODO(student): Implement SearchRunApplicationService.findResources().");
+        return DisplayResourceDto.from(searchRunService.findResources(searchRunId));
     }
 }
