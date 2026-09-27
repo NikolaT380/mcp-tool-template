@@ -1,15 +1,19 @@
 package mk.ukim.finki.mcptoolbackend.service.application.impl;
 
 import java.util.Optional;
+import mk.ukim.finki.mcptoolbackend.model.domain.Resource;
 import mk.ukim.finki.mcptoolbackend.model.dto.DisplayResourceDto;
 import mk.ukim.finki.mcptoolbackend.model.dto.ResourceFilterDto;
 import mk.ukim.finki.mcptoolbackend.service.application.ResourceApplicationService;
 import mk.ukim.finki.mcptoolbackend.service.domain.ResourceService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 /**
- * TODO(student): Implement this service. Build a {@code Pageable} (e.g.
+ * _TODO(student): Implement this service. Build a {@code Pageable} (e.g.
  * {@code PageRequest.of(page, size)}), delegate to {@link ResourceService},
  * and map with {@code DisplayResourceDto.from(...)} (use {@code Page.map}).
  */
@@ -23,21 +27,30 @@ public class ResourceApplicationServiceImpl implements ResourceApplicationServic
 
     @Override
     public Page<DisplayResourceDto> findAll(ResourceFilterDto filter, int page, int size) {
-        throw new UnsupportedOperationException("TODO(student): Implement ResourceApplicationService.findAll().");
+        int safePage = Math.max(0, page);
+        int safeSize = (size > 0) ? Math.min(size, 100) : 10;
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Resource> resourcePage = resourceService.findAll(filter, pageable);
+        return resourcePage.map(DisplayResourceDto::from);
     }
 
     @Override
     public Optional<DisplayResourceDto> findById(Long id) {
-        throw new UnsupportedOperationException("TODO(student): Implement ResourceApplicationService.findById().");
+        return resourceService.findById(id).map(DisplayResourceDto::from);
     }
 
     @Override
     public Optional<DisplayResourceDto> deleteById(Long id) {
-        throw new UnsupportedOperationException("TODO(student): Implement ResourceApplicationService.deleteById().");
+        return resourceService.deleteById(id).map(DisplayResourceDto::from);
     }
 
     @Override
     public Optional<DisplayResourceDto> analyze(Long id) {
-        throw new UnsupportedOperationException("TODO(student): Implement ResourceApplicationService.analyze().");
+        try {
+            Resource resource = resourceService.analyze(id);
+            return Optional.of(DisplayResourceDto.from(resource));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }
