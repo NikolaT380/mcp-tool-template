@@ -7,48 +7,54 @@ import SubmitDonationDialog from '../../../components/donation/SubmitDonationDia
 
 /**
  * The donation dashboard towards doniraj.vezilka.ai.
- * TODO(student): Implement useDonations, DonationBatchCard and
+ * _TODO(student): Implement useDonations, DonationBatchCard and
  * SubmitDonationDialog, plus overall donation statistics.
  */
 const DonationsPage = () => {
-  const { donations, loading } = useDonations();
-
+  const { donations, loading, onApprove, onSubmit } = useDonations();
   const [newBatchDialogOpen, setNewBatchDialogOpen] = useState<boolean>(false);
 
   return (
-    <Box>
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress/>
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5">Donations</Typography>
+          <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setNewBatchDialogOpen(true)}
+          >
+            New Batch
+          </Button>
         </Box>
-      )}
-      {!loading &&
-       <>
-         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-           <Typography variant='h5'>Donations</Typography>
-           <Button variant='contained' startIcon={<AddIcon/>} onClick={() => setNewBatchDialogOpen(true)}>
-             New Batch
-           </Button>
-         </Box>
-         {donations.length === 0 && (
-           <Typography color='text.secondary'>
-             No donation batches yet. Group resources into a batch and donate
-             them to doniraj.vezilka.ai.
-           </Typography>
-         )}
-         <Grid container spacing={2}>
-           {donations.map((batch) => (
-             <Grid key={batch.id} size={{ xs: 12, sm: 6, md: 4 }}>
-               <DonationBatchCard batch={batch}/>
-             </Grid>
-           ))}
-         </Grid>
-         <SubmitDonationDialog
-           open={newBatchDialogOpen}
-           onClose={() => setNewBatchDialogOpen(false)}
-         />
-       </>}
-    </Box>
+        {loading && (
+            <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 4 }} />
+        )}
+        {!loading && donations.length === 0 && (
+            <Typography color="text.secondary">
+              No donation batches yet. Click &quot;New Batch&quot; to bundle resources for doniraj.vezilka.ai.
+            </Typography>
+        )}
+        {!loading && donations.length > 0 && (
+            <Grid container spacing={2}>
+              {donations.map((batch) => (
+                  <Grid key={batch.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                    <DonationBatchCard
+                        batch={batch}
+                        onApprove={onApprove}
+                        onSubmit={onSubmit}
+                    />
+                  </Grid>
+              ))}
+            </Grid>
+        )}
+        <SubmitDonationDialog
+            open={newBatchDialogOpen}
+            onClose={() => {
+              setNewBatchDialogOpen(false);
+              window.location.reload();
+            }}
+        />
+      </Box>
   );
 };
 
