@@ -109,14 +109,16 @@ const ResourceDetailsPage = () => {
                     {resource.content}
                 </Typography>
                 {resource.sourceUrl && (
-                    <Link
-                        href={resource.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        variant="caption"
-                    >
-                        Source: {resource.sourceUrl}
-                    </Link>
+                    <Typography variant="caption" color="text.secondary">
+                        Source:{' '}
+                        <Link
+                            href={resource.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {resource.sourceUrl}
+                        </Link>
+                    </Typography>
                 )}
             </Box>
 

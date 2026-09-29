@@ -29,18 +29,14 @@ public class StubSourceClient implements SourceClient {
     public List<FetchedResource> search(String query, int limit) {
         int maxResults = (limit > 0) ? Math.min(limit, 50) : 10;
         List<FetchedResource> results = new ArrayList<>();
-        String baseUrl = sourceProperties.baseUrl();
-        if (baseUrl == null || baseUrl.isBlank()) {
-            baseUrl = "https://www.izvor.net.mk";
-        }
+        String baseUrl = (sourceProperties.baseUrl() != null && !sourceProperties.baseUrl().isBlank())
+                ? sourceProperties.baseUrl()
+                : "https://www.izvor.net.mk";
 
         try {
-            String searchUrl;
-            if (query == null || query.isBlank()) {
-                searchUrl = baseUrl + "/results.php";
-            } else {
-                searchUrl = baseUrl + "/results.php?q=" + URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
-            }
+            String searchUrl = (query == null || query.isBlank())
+                ? baseUrl + "/results.php"
+                : baseUrl + "/results.php?q=" + URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
 
             log.info("Fetching resources from izvor.net.mk: {}", searchUrl);
 
@@ -50,15 +46,18 @@ public class StubSourceClient implements SourceClient {
                     .get();
 
             Elements articleLinks = doc.select("a[href*='article.php?id=']");
+            log.info("Found {} article links on results page.", articleLinks.size());
 
             for (Element link : articleLinks) {
                 if (results.size() >= maxResults) {
                     break;
                 }
                 String href = link.attr("href");
-                String fullUrl = href.startsWith("http") ? href : baseUrl + "/" + href.replaceFirst("^/", "");
                 String title = link.text().trim();
 
+                if (title.isBlank() || title.equalsIgnoreCase("view") || title.equalsIgnoreCase("details")) {
+                    continue;
+                }
                 String externalId = href;
                 if (href.contains("id=")) {
                     externalId = href.substring(href.indexOf("id=") + 3);
@@ -68,23 +67,35 @@ public class StubSourceClient implements SourceClient {
                 }
 
                 final String currentExtId = externalId;
-                if (title.isBlank() || results.stream().anyMatch(r -> r.externalId().equals(currentExtId))) {
+                if (results.stream().anyMatch(r -> r.externalId().equals(currentExtId))) {
                     continue;
                 }
 
-                Element parent = link.parent();
-                String contentSnippet = "";
-                if (parent != null && parent.parent() != null) {
-                    contentSnippet = parent.parent().text();
+                String fullUrl = href.startsWith("http") ? href : baseUrl + "/" + href.replaceFirst("^/", "");
+
+                String content = "";
+                try {
+                    Document articleDoc = Jsoup.connect(fullUrl)
+                            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                            .timeout(6000)
+                            .get();
+
+                    Element abstractP = articleDoc.selectFirst("h3:contains(Abstract) + p");
+                    if (abstractP != null && !abstractP.text().isBlank()) {
+                        content = abstractP.text().trim();
+                    }
+                } catch (Exception ex) {
+                    log.debug("Could not fetch abstract directly for {}, falling back to title.", fullUrl);
                 }
-                if (contentSnippet.isBlank() || contentSnippet.length() < 30) {
-                    contentSnippet = title;
+
+                if (content.isBlank()) {
+                    content = title;
                 }
 
                 results.add(new FetchedResource(
                         externalId,
                         title,
-                        contentSnippet,
+                        content,
                         fullUrl,
                         LocalDateTime.now()
                 ));
@@ -111,13 +122,15 @@ public class StubSourceClient implements SourceClient {
                     .get();
 
             String title = doc.title();
-            Element heading = doc.selectFirst("h1, h2, .article-title");
+            Element heading = doc.selectFirst("article.card h2, h2, h1");
             if (heading != null && !heading.text().isBlank()) {
                 title = heading.text().trim();
             }
 
-            Element contentElem = doc.selectFirst(".abstract, .article-content, #abstract, main, article");
-            String content = (contentElem != null) ? contentElem.text() : doc.body().text();
+            Element abstractP = doc.selectFirst("h3:contains(Abstract) + p");
+            String content = (abstractP != null && !abstractP.text().isBlank())
+                ? abstractP.text().trim()
+                : (heading != null ? heading.text().trim() : doc.title());
 
             String externalId = url;
             if (url.contains("id=")) {
